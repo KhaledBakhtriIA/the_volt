@@ -1,0 +1,187 @@
+/* ============================================================
+   The Volt System — Control Plane
+   Design tokens sourced from the validated data-viz palette
+   (dark-surface steps). Dark-mode-first fintech control plane.
+   ============================================================ */
+:root {
+  --plane:        #0d0d0d;   /* page plane                    */
+  --surface-1:    #1a1a19;   /* card surface                  */
+  --surface-2:    #222220;   /* raised / inset                */
+  --ink:          #ffffff;   /* primary text                  */
+  --ink-2:        #c3c2b7;   /* secondary text                */
+  --ink-muted:    #898781;   /* labels / axes                 */
+  --hair:         rgba(255,255,255,0.10); /* hairline border  */
+  --grid:         #2c2c2a;   /* gridline                      */
+
+  /* categorical (validated dark steps) */
+  --accent:       #3987e5;   /* blue  — primary / brand       */
+  --aqua:         #2bb98a;   /* equity / positive series      */
+  --violet:       #9085e9;
+
+  /* status (fixed, never themed) */
+  --good:         #0ca30c;
+  --warning:      #fab219;
+  --serious:      #ec835a;
+  --critical:     #d03b3b;
+
+  --radius:       14px;
+  --radius-sm:    9px;
+  font-family: system-ui, -apple-system, "Segoe UI", sans-serif;
+  color-scheme: dark;
+}
+
+* { box-sizing: border-box; }
+
+body {
+  margin: 0;
+  background:
+    radial-gradient(1200px 600px at 78% -10%, rgba(57,135,229,0.10), transparent 60%),
+    radial-gradient(900px 500px at 0% 110%, rgba(43,185,138,0.06), transparent 55%),
+    var(--plane);
+  color: var(--ink);
+  -webkit-font-smoothing: antialiased;
+  min-height: 100vh;
+}
+
+.tnum { font-variant-numeric: tabular-nums; }
+
+/* ---------- shell ---------- */
+.app { max-width: 1240px; margin: 0 auto; padding: 22px 24px 56px; }
+
+.topbar {
+  display: flex; align-items: center; gap: 16px;
+  padding-bottom: 20px; margin-bottom: 22px;
+  border-bottom: 1px solid var(--hair);
+}
+.brand { display: flex; align-items: center; gap: 12px; }
+.bolt {
+  width: 40px; height: 40px; border-radius: 11px;
+  display: grid; place-items: center; font-size: 21px;
+  background: linear-gradient(150deg, #3987e5, #1c5cab);
+  box-shadow: 0 6px 20px rgba(57,135,229,0.35), inset 0 1px 0 rgba(255,255,255,0.25);
+}
+.brand h1 { font-size: 16px; font-weight: 650; margin: 0; letter-spacing: -0.01em; }
+.brand p  { font-size: 12px; margin: 2px 0 0; color: var(--ink-muted); }
+.spacer { flex: 1; }
+
+.pill {
+  display: inline-flex; align-items: center; gap: 7px;
+  font-size: 11.5px; font-weight: 600; letter-spacing: 0.03em;
+  padding: 6px 11px; border-radius: 999px;
+  border: 1px solid var(--hair); background: var(--surface-1);
+  color: var(--ink-2); text-transform: uppercase;
+}
+.pill.env { color: var(--warning); }
+.dot { width: 8px; height: 8px; border-radius: 50%; background: var(--good); }
+.dot.live { box-shadow: 0 0 0 0 rgba(12,163,12,0.55); animation: pulse 1.8s infinite; }
+@keyframes pulse {
+  0%   { box-shadow: 0 0 0 0 rgba(12,163,12,0.5); }
+  70%  { box-shadow: 0 0 0 7px rgba(12,163,12,0); }
+  100% { box-shadow: 0 0 0 0 rgba(12,163,12,0); }
+}
+
+/* ---------- section label ---------- */
+.section-label {
+  font-size: 11px; letter-spacing: 0.09em; text-transform: uppercase;
+  color: var(--ink-muted); font-weight: 600;
+  margin: 26px 2px 12px;
+}
+
+/* ---------- KPI tiles ---------- */
+.kpi-grid {
+  display: grid; gap: 14px;
+  grid-template-columns: repeat(6, 1fr);
+}
+.tile {
+  background: var(--surface-1);
+  border: 1px solid var(--hair);
+  border-radius: var(--radius);
+  padding: 16px 16px 15px;
+  position: relative; overflow: hidden;
+}
+.tile::before {
+  content: ""; position: absolute; left: 0; top: 0; bottom: 0; width: 3px;
+  background: var(--accent); opacity: 0.9;
+}
+.tile .k-label { font-size: 11.5px; color: var(--ink-muted); font-weight: 550; }
+.tile .k-value {
+  font-size: 30px; font-weight: 680; letter-spacing: -0.02em;
+  margin: 8px 0 2px; line-height: 1;
+}
+.tile .k-sub { font-size: 11.5px; color: var(--ink-2); }
+.tile .k-sub b { color: var(--good); font-weight: 600; }
+
+/* ---------- layout grid ---------- */
+.grid { display: grid; gap: 16px; }
+.cols-2 { grid-template-columns: 1.35fr 1fr; }
+.card {
+  background: var(--surface-1);
+  border: 1px solid var(--hair);
+  border-radius: var(--radius);
+  padding: 18px 18px 16px;
+}
+.card-head { display: flex; align-items: baseline; justify-content: space-between; margin-bottom: 4px; }
+.card-head h2 { font-size: 13.5px; font-weight: 620; margin: 0; letter-spacing: -0.01em; }
+.card-head .hint { font-size: 11px; color: var(--ink-muted); }
+
+/* ---------- live equity ---------- */
+.equity-top { display: flex; align-items: flex-end; gap: 14px; margin: 10px 0 6px; }
+.hero { font-size: 40px; font-weight: 700; letter-spacing: -0.025em; line-height: 1; }
+.delta { font-size: 13px; font-weight: 600; padding-bottom: 5px; }
+.delta.up { color: var(--good); }
+.delta.down { color: var(--critical); }
+.equity-meta { display: flex; gap: 26px; margin-top: 14px; }
+.equity-meta .m-label { font-size: 11px; color: var(--ink-muted); }
+.equity-meta .m-val { font-size: 15px; font-weight: 600; margin-top: 3px; }
+
+/* ---------- meter ---------- */
+.meter-row { margin-top: 4px; }
+.meter-track {
+  height: 9px; border-radius: 999px; background: var(--surface-2);
+  overflow: hidden; position: relative; border: 1px solid var(--hair);
+}
+.meter-fill { height: 100%; border-radius: 999px; transition: width .6s ease, background .6s ease; }
+.meter-limit {
+  position: absolute; top: -3px; bottom: -3px; width: 2px; background: var(--critical);
+  border-radius: 2px;
+}
+.meter-caption { display: flex; justify-content: space-between; margin-top: 7px; font-size: 11px; color: var(--ink-muted); }
+
+/* ---------- collectors ---------- */
+.coll-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 8px 22px; margin-top: 8px; }
+.coll {
+  display: flex; align-items: center; gap: 10px; padding: 8px 4px;
+  border-bottom: 1px solid var(--hair);
+}
+.coll:nth-last-child(-n+2) { border-bottom: none; }
+.coll .c-name { font-size: 13px; flex: 1; }
+.coll .c-lat { font-size: 12px; color: var(--ink-2); }
+.sdot { width: 8px; height: 8px; border-radius: 50%; flex: none; }
+.sdot.good { background: var(--good); }
+.sdot.warning { background: var(--warning); }
+.sdot.critical { background: var(--critical); }
+
+/* ---------- governance ---------- */
+.gov-row { display: flex; align-items: center; justify-content: space-between; padding: 11px 0; border-bottom: 1px solid var(--hair); }
+.gov-row:last-child { border-bottom: none; }
+.gov-row .g-label { font-size: 12.5px; color: var(--ink-2); }
+.gov-row .g-val { font-size: 13px; font-weight: 600; display: flex; align-items: center; gap: 8px; }
+.chip {
+  font-size: 10.5px; font-weight: 650; letter-spacing: 0.03em; text-transform: uppercase;
+  padding: 3px 8px; border-radius: 6px; border: 1px solid var(--hair);
+}
+.chip.good { color: var(--good); background: rgba(12,163,12,0.12); border-color: rgba(12,163,12,0.3); }
+.chip.warning { color: var(--warning); background: rgba(250,178,25,0.12); border-color: rgba(250,178,25,0.3); }
+
+.bar-mini { height: 6px; border-radius: 999px; background: var(--surface-2); width: 120px; overflow: hidden; }
+.bar-mini > span { display: block; height: 100%; border-radius: 999px; }
+
+/* ---------- footer ---------- */
+.foot { margin-top: 30px; font-size: 11.5px; color: var(--ink-muted); text-align: center; }
+.foot a { color: var(--accent); text-decoration: none; }
+
+@media (max-width: 940px) {
+  .kpi-grid { grid-template-columns: repeat(2, 1fr); }
+  .cols-2 { grid-template-columns: 1fr; }
+  .coll-grid { grid-template-columns: 1fr; }
+}

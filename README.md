@@ -172,6 +172,15 @@ docker compose up --build            # API + Redis + Redpanda
 
 See [DOCKER_SETUP.md](DOCKER_SETUP.md) for details.
 
+### Control-plane dashboard (React)
+
+A professional React + Vite dashboard in [`frontend/`](frontend/) showcases the
+platform metrics alongside a simulated live paper-trading, risk, and drift feed.
+
+```bash
+cd frontend && npm install && npm run dev   # http://localhost:5173
+```
+
 ---
 
 ## 🧪 Testing
