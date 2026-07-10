@@ -2,12 +2,13 @@
 
 # ⚡ The Volt System
 
-**An autonomous, multi-source quantitative trading platform — data ingestion, feature engineering, ML prediction, and governed paper execution in one hardened Python stack.**
+**An autonomous, agent-based quantitative trading platform — a fleet of specialized agents over a hardened stack for data ingestion, feature engineering, ML prediction, and governed paper execution.**
 
 [![Python](https://img.shields.io/badge/Python-3.11-3776AB?logo=python&logoColor=white)](https://www.python.org/)
-[![Tests](https://img.shields.io/badge/tests-180%20passing-brightgreen)](tests/)
-[![FastAPI](https://img.shields.io/badge/API-FastAPI-009688?logo=fastapi&logoColor=white)](data_api/)
-[![XGBoost](https://img.shields.io/badge/ML-XGBoost%20%2B%20Optuna-EB5E28)](src/canonical/xgb_optuna_pipeline.py)
+[![Tests](https://img.shields.io/badge/tests-188%20passing-brightgreen)](tests/)
+[![Agents](https://img.shields.io/badge/agents-6%20fleet-3987e5)](agents/)
+[![FastAPI](https://img.shields.io/badge/API-FastAPI-009688?logo=fastapi&logoColor=white)](api/)
+[![XGBoost](https://img.shields.io/badge/ML-XGBoost%20%2B%20Optuna-EB5E28)](models/training/xgb_optuna_pipeline.py)
 [![Docker](https://img.shields.io/badge/deploy-Docker%20Compose-2496ED?logo=docker&logoColor=white)](docker-compose.yml)
 [![License](https://img.shields.io/badge/license-MIT-blue)](LICENSE)
 [![Status](https://img.shields.io/badge/status-paper--trading%20ready-yellow)]()
@@ -18,9 +19,9 @@
 
 ## Overview
 
-The Volt System ingests financial data from **11 heterogeneous sources**, validates its integrity through a rigorous statistical quality gate, engineers **150+ deterministic features**, and trains/serves **XGBoost** models to produce market predictions. A dedicated **governance layer** — portfolio risk modeling, Kelly-based position sizing, algorithmic execution (TWAP), and a global drawdown kill-switch — bridges those predictions to a simulated broker with full auditability.
+The Volt System is organized as a **fleet of six autonomous agents** communicating over an in-process **event bus**, each a thin single-responsibility wrapper over a hardened engine layer. Data flows `data → strategy → risk → execution`: agents ingest from **11 data sources**, engineer **150+ features**, score with **XGBoost**, size positions with a Kelly-based **PortfolioRiskModel** (global drawdown kill-switch), and route risk-approved orders through a **TWAP** execution gateway to a simulated broker — every message auditable on the bus.
 
-The platform was refactored out of a 600+ cell research notebook into a **decoupled, fully-tested Python package**, with a shadow-test suite proving numerical equivalence between the notebook and the production code down to 5 decimal places.
+The engine underneath was refactored out of a 600+ cell research notebook into a **decoupled, fully-tested package**, with a shadow-test suite proving numerical equivalence between the notebook and production code to 5 decimal places.
 
 > **Current maturity:** production-ready **research & paper-trading** platform. Live capital execution (real broker connectivity) is the primary remaining milestone — see the [Roadmap](#-roadmap).
 
@@ -30,10 +31,10 @@ The platform was refactored out of a 600+ cell research notebook into a **decoup
 
 | Metric | Value |
 |---|---|
-| **Production Python** | ~8,300 LOC across 61 modules |
-| **Test suite** | 180 tests / 34 files / ~3,200 LOC — **100% passing** |
+| **Production Python** | ~8,200 LOC across 57 modules |
+| **Autonomous agents** | 6 (data · momentum · sentiment · risk · execution · supervisor) |
+| **Test suite** | 188 tests (unit · integration · agent) — **100% passing** |
 | **Data collectors** | 11 (market, macro, news, social, vision) |
-| **Canonical pipeline modules** | 22 |
 | **Feature indicators** | 150+ (momentum, volatility, volume) |
 | **Documentation** | 17 architecture & policy documents |
 | **Runtime** | Python 3.11 · FastAPI · Redis · Kafka · Docker Compose |
@@ -44,87 +45,77 @@ The platform was refactored out of a 600+ cell research notebook into a **decoup
 
 ```mermaid
 flowchart LR
-    subgraph Ingest["Data Ingestion — data_api/"]
-        C1[Market / Stock]
-        C2[Macro · FRED]
-        C3[News / Reddit]
-        C4[Vision Extractor]
+    subgraph Agents["Agent Fleet — agents/"]
+        DA["Data Agent"]
+        MA["Momentum Agent"]
+        SA["Sentiment Agent"]
+        RA["Risk Agent"]
+        EA["Execution Agent"]
+        SUP["Supervisor Agent"]
     end
 
-    subgraph Quality["Quality & Features — src/canonical/"]
-        FS["FeatureStoreEngine<br/>validation + Parquet"]
-        FE["FeatureEngineer<br/>150+ indicators"]
+    BUS(["Event Bus"])
+    DA --> BUS --> MA & SA --> BUS
+    BUS --> RA --> BUS --> EA
+    SUP -. health .-> BUS
+
+    subgraph Engine["Engine Layers"]
+        DL["data_layer<br/>collectors · feature store"]
+        MO["models<br/>registry · training · drift"]
+        TE["trading_engine<br/>risk · execution · portfolio"]
     end
 
-    subgraph Brain["Predictive Core"]
-        XGB["XGBoost + Optuna<br/>OOF stacking"]
-        REG["Model Registry<br/>human-approval gate"]
-        DRIFT["Drift Detector<br/>KS / PSI"]
-    end
-
-    subgraph Gov["Governance & Execution"]
-        RISK["PortfolioRiskModel<br/>Kelly · drawdown kill-switch"]
-        EXEC["Execution Gateway<br/>TWAP · paper broker"]
-    end
-
-    Ingest --> FS --> FE --> XGB --> REG --> RISK --> EXEC
-    DRIFT -. triggers retrain .-> XGB
-    EXEC -. ledger + feedback .-> DRIFT
+    DA -.-> DL
+    MA -.-> MO
+    RA -.-> TE
+    EA -.-> TE
 ```
 
 ---
 
-## 🧩 Core Components
+## 🧩 Agent Fleet — [`agents/`](agents/)
 
-### Data Ingestion — [`data_api/`](data_api/)
-A fault-isolated FastAPI service orchestrating **11 collectors**. If any provider fails or credentials expire, that collector returns an empty payload and the pipeline degrades gracefully instead of crashing.
+Each agent is a thin wrapper over an engine component and talks to the fleet **only through the [event bus](orchestration/event_bus.py)**, so the system stays decoupled and every hop is testable.
 
-`market_collector` · `stock_market_collector` · `macro_collector` · `news_collector` · `reddit_collector` · `trading_strategy_collector` · `trading_mistakes_collector` · `finance_query_stream` · `browser_collector` · `desktop_collector` · `vision_extractor`
+| Agent | Consumes | Produces | Wraps |
+|---|---|---|---|
+| [`data_agent`](agents/data_agent) | collectors | `market.data`, `news.data` | data_layer collectors |
+| [`momentum_agent`](agents/momentum_agent) | `market.data` | `signal` | momentum model |
+| [`sentiment_agent`](agents/sentiment_agent) | `news.data` | `signal` | SentimentProcessor |
+| [`risk_agent`](agents/risk_agent) | `signal` | `order.sized` / `order.rejected` | PortfolioRiskModel |
+| [`execution_agent`](agents/execution_agent) | `order.sized` | `order.filled` | PaperExecutor (TWAP) |
+| [`supervisor_agent`](agents/supervisor_agent) | — | fleet health | the fleet |
 
-Processors: [`sentiment.py`](data_api/processors/sentiment.py) · [`technical_indicators.py`](data_api/processors/technical_indicators.py)
+Orchestration lives in [`orchestration/`](orchestration/): [`agent_orchestrator.py`](orchestration/agent_orchestrator.py) wires the fleet onto a shared bus and runs trade cycles; [`workflow_manager.py`](orchestration/workflow_manager.py) sequences named workflows; [`event_bus.py`](orchestration/event_bus.py) is the pub/sub transport.
 
-### Feature & Quality Pipeline — [`src/canonical/`](src/canonical/)
-- **[`FeatureStoreEngine`](src/canonical/feature_store_engine.py)** — statistical quality gate: column presence, pricing-domain assertions, market-hour gap detection, Z-score outlier flagging, durable Parquet persistence.
-- **[`FeatureEngineer`](src/canonical/feature_engineer.py)** — 150+ vectorized indicators, notebook-verified.
-- **[`XGBOptunaBundle`](src/canonical/xgb_optuna_pipeline.py)** — XGBoost classification with OOF stacking and budget-aware Optuna sweeps.
-- **Real-time scaffolding** — [`realtime_runtime.py`](src/canonical/realtime_runtime.py), [`stream_worker.py`](src/canonical/stream_worker.py), Redis feature cache for low-latency tick scoring.
+## 🧱 Engine Layers
 
-### Predictive Core — [`src/brain/`](src/brain/)
-Pure, side-effect-free math — heavily testable.
-- **[`trading_math.py`](src/brain/trading_math.py)** — Kelly criterion, expectancy edge, drawdown.
-- **[`features.py`](src/brain/features.py)** — `calculate_std`, `calculate_atr`, `add_3sigma_target`.
-
-### Governance & Execution
-- **[`risk_management.py`](src/canonical/risk_management.py)** — `PortfolioRiskModel`: global drawdown kill-switch + Half-Kelly position sizing.
-- **[`execution_strategy.py`](src/canonical/execution_strategy.py)** — TWAP order slicing to minimize market impact.
-- **[`execution_gateway.py`](src/canonical/execution_gateway.py)** — risk-validated order contracts routed to the paper broker with a SQLite ledger.
-
-### Reliability by Design
-- **Orchestrator checkpoints** — failed batch jobs resume from the last successful step.
-- **Human-in-the-loop approval** — new models land `PENDING` in the [Model Registry](src/canonical/model_registry.py) until manually promoted.
-- **Automated drift retraining** — KS / PSI checks trigger the Optuna trainer when feature deviation exceeds thresholds.
+- **[`data_layer/`](data_layer/)** — 11 [collectors](data_layer/collectors), [processors](data_layer/processors), the [feature store](data_layer/feature_store) (`FeatureStoreEngine` quality gate + `FeatureEngineer` 150+ indicators), and [schemas](data_layer/schemas).
+- **[`models/`](models/)** — [registry](models/registry) (human-approval gate), [training](models/training) (`XGBOptunaBundle` + learning loop), [evaluation](models/evaluation) (drift KS/PSI, error monitor), and [inference](models/inference).
+- **[`trading_engine/`](trading_engine/)** — [risk_management](trading_engine/risk_management) (`PortfolioRiskModel`), [execution](trading_engine/execution) (gateway + TWAP), [strategies](trading_engine/strategies), and [portfolio](trading_engine/portfolio) (paper broker).
+- **[`api/`](api/)** — FastAPI [REST gateway](api/rest) and [WebSocket](api/websocket) interface.
+- **[`infrastructure/`](infrastructure/)** — [config](infrastructure/config), [database](infrastructure/database), [monitoring](infrastructure/monitoring), and [docker](infrastructure/docker).
 
 ---
 
 ## 🗂️ Project Structure
 
 ```
-the_volt_system/
-├── core/                  # Shared feature contract & config
-├── data_api/              # FastAPI ingestion service
-│   ├── collectors/        #   11 data-source collectors
-│   ├── processors/        #   sentiment + technical indicators
-│   ├── jobs/              #   pipeline, retention, production runners
-│   └── storage/           #   file store
-├── src/
-│   ├── brain/             # Pure math (Kelly, ATR, targets)
-│   └── canonical/         # 22 production pipeline modules
-├── tests/                 # 180 tests across 34 files
-├── documentation/         # 17 architecture & policy docs
-├── research/notebooks/    # Archived research notebook (shadow-tested)
-├── scripts/               # Stress tests & utilities
-├── docker-compose.yml     # Redpanda + Redis + API cluster
-└── Dockerfile
+VOLT_SYSTEM/
+├── agents/                # 6-agent fleet (thin wrappers over the engine)
+│   ├── data_agent/  momentum_agent/  sentiment_agent/
+│   └── risk_agent/  execution_agent/ supervisor_agent/
+├── orchestration/         # event_bus · agent_orchestrator · workflow_manager · jobs
+├── data_layer/            # collectors · processors · feature_store · schemas
+├── models/                # registry · training · evaluation · inference
+├── trading_engine/        # portfolio · strategies · execution · risk_management
+├── infrastructure/        # config · database · monitoring · docker
+├── api/                   # rest (FastAPI) · websocket
+├── frontend/              # React + Vite control-plane dashboard
+├── tests/                 # unit · integration · agent_tests (188 tests)
+├── research/notebooks/    # archived research notebook (shadow-tested)
+├── docs/                  # 17 architecture & policy documents
+└── README.md
 ```
 
 ---
@@ -153,13 +144,26 @@ cp .env.example .env                 # then fill in provider API keys
 ### Run the test suite
 
 ```bash
-pytest              # 180 tests
+pytest                          # 188 tests (unit + integration + agent)
+pytest tests/agent_tests        # just the agent-fleet tests
+```
+
+### Run an agent trade cycle
+
+```python
+from orchestration.agent_orchestrator import AgentOrchestrator
+from trading_engine.risk_management.risk_management import PortfolioRiskModel
+
+portfolio = PortfolioRiskModel(); portfolio.sync_equity(1_000_000)
+orch = AgentOrchestrator(engine, portfolio_model=portfolio)   # engine = seeded FeatureStoreEngine
+orch.run_cycle(frame)           # data → signal → risk → execution
+print(orch.health())            # supervisor fleet health
 ```
 
 ### Launch the API
 
 ```bash
-uvicorn data_api.app:app --reload
+uvicorn api.rest.app:app --reload
 # POST /collect/full   — run a batch collection job
 # GET  /health         — cluster health
 ```
@@ -170,7 +174,7 @@ uvicorn data_api.app:app --reload
 docker compose up --build            # API + Redis + Redpanda
 ```
 
-See [DOCKER_SETUP.md](DOCKER_SETUP.md) for details.
+See [infrastructure/docker/DOCKER_SETUP.md](infrastructure/docker/DOCKER_SETUP.md) for details.
 
 ### Control-plane dashboard (React)
 
@@ -186,12 +190,13 @@ cd frontend && npm install && npm run dev   # http://localhost:5173
 ## 🧪 Testing
 
 ```bash
-pytest                       # full suite
-pytest -m unit               # fast, no I/O
-pytest tests/test_trading_math.py -v
+pytest                              # full suite (188)
+pytest tests/unit                   # fast, no I/O
+pytest tests/integration            # I/O: sqlite, parquet, FastAPI
+pytest tests/agent_tests            # agent fleet + event bus
 ```
 
-Markers: `unit`, `integration`, `slow`, `skip_ci`. A **shadow test** ([`test_notebook_shadow.py`](tests/test_notebook_shadow.py)) parses the archived research notebook's AST and asserts feature-parity with the production `FeatureEngineer` to `rtol=1e-5`.
+Tests are organized into `unit/`, `integration/`, and `agent_tests/`. A **shadow test** ([`test_notebook_shadow.py`](tests/integration/test_notebook_shadow.py)) parses the archived research notebook's AST and asserts feature-parity with the production `FeatureEngineer` to `rtol=1e-5`. The agent tests drive the full `data → signal → risk → execution` chain end-to-end.
 
 ---
 

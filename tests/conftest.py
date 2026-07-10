@@ -65,7 +65,7 @@ def mock_settings():
 @pytest.fixture
 def mock_market_collector():
     """Mock MarketCollector for API tests."""
-    with patch("data_api.app.MarketCollector") as mock:
+    with patch("api.rest.app.MarketCollector") as mock:
         instance = MagicMock()
         instance.fetch.return_value = pd.DataFrame({
             "timestamp": pd.date_range("2024-01-01", periods=5, freq="D"),
@@ -84,7 +84,7 @@ def mock_market_collector():
 @pytest.fixture
 def mock_news_collector():
     """Mock NewsCollector for API tests."""
-    with patch("data_api.app.NewsCollector") as mock:
+    with patch("api.rest.app.NewsCollector") as mock:
         instance = MagicMock()
         instance.fetch.return_value = [
             {
@@ -101,7 +101,7 @@ def mock_news_collector():
 @pytest.fixture
 def mock_sentiment_processor():
     """Mock SentimentProcessor for API tests."""
-    with patch("data_api.app.SentimentProcessor") as mock:
+    with patch("api.rest.app.SentimentProcessor") as mock:
         instance = MagicMock()
         instance.analyze.return_value = {
             "compound": 0.75,
