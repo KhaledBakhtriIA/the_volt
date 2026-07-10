@@ -1,0 +1,33 @@
+groups:
+  - name: volt-api
+    rules:
+      - alert: VoltApiDown
+        expr: up{job="volt-data-api"} == 0
+        for: 2m
+        labels:
+          severity: critical
+        annotations:
+          summary: "Volt Data API is down"
+          description: "Prometheus has not been able to scrape volt-data-api for 2 minutes."
+
+      - alert: VoltHighErrorRate
+        expr: |
+          sum(rate(volt_http_requests_total{status=~"5.."}[5m]))
+            / clamp_min(sum(rate(volt_http_requests_total[5m])), 1e-9) > 0.05
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: "Volt API 5xx error rate above 5%"
+          description: "More than 5% of requests are failing over the last 5 minutes."
+
+      - alert: VoltHighLatency
+        expr: |
+          histogram_quantile(0.95,
+            sum(rate(volt_http_request_duration_seconds_bucket[5m])) by (le)) > 1
+        for: 10m
+        labels:
+          severity: warning
+        annotations:
+          summary: "Volt API p95 latency above 1s"
+          description: "95th percentile request latency has exceeded 1s for 10 minutes."

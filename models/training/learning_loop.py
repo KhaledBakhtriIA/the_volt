@@ -14,8 +14,6 @@ logger = logging.getLogger(__name__)
 
 def _run_training_pipeline_sync(data_dir: str, registry_db_path: str, dataset_name: str) -> None:
     '''Synchronous target for the multiprocessing background trainer.'''
-    import pandas as pd
-    from datetime import datetime
     
     # 1. Look for parquet files
     base_path = Path(data_dir) / dataset_name

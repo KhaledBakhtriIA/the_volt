@@ -17,6 +17,10 @@ fredapi==0.5.2
 mss==10.0.0
 pyautogui==0.9.54
 
+# Observability & MLOps
+prometheus-client==0.20.0
+optuna==4.8.0
+
 # Testing dependencies
 pytest==7.4.4
 pytest-cov==4.1.0

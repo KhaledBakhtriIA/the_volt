@@ -2,9 +2,8 @@ import sqlite3
 import logging
 from datetime import datetime, timezone
 from enum import Enum
-from dataclasses import dataclass, asdict
+from dataclasses import dataclass
 from typing import Optional, Tuple
-import pandas as pd
 
 from data_layer.feature_store.feature_store_engine import FeatureStoreEngine
 

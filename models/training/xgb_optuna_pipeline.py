@@ -18,7 +18,6 @@ Plots are optional (matplotlib); joblib serialisation is optional too.
 
 import gc
 import os
-import time
 import warnings
 from typing import Optional
 
@@ -233,7 +232,6 @@ def preprocess_for_model(
 
 def _get_tree_method() -> str:
     try:
-        import subprocess  # noqa: S404
         if "COLAB_GPU" in os.environ or (
             "CUDA_VISIBLE_DEVICES" in os.environ
             and os.environ["CUDA_VISIBLE_DEVICES"] != ""

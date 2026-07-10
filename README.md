@@ -4,8 +4,10 @@
 
 **An autonomous, agent-based quantitative trading platform — a fleet of specialized agents over a hardened stack for data ingestion, feature engineering, ML prediction, and governed paper execution.**
 
+[![CI](https://github.com/KhaledBakhtriIA/the_volt/actions/workflows/ci.yml/badge.svg)](https://github.com/KhaledBakhtriIA/the_volt/actions/workflows/ci.yml)
+[![CD](https://github.com/KhaledBakhtriIA/the_volt/actions/workflows/cd.yml/badge.svg)](https://github.com/KhaledBakhtriIA/the_volt/actions/workflows/cd.yml)
 [![Python](https://img.shields.io/badge/Python-3.11-3776AB?logo=python&logoColor=white)](https://www.python.org/)
-[![Tests](https://img.shields.io/badge/tests-188%20passing-brightgreen)](tests/)
+[![Tests](https://img.shields.io/badge/tests-190%20passing-brightgreen)](tests/)
 [![Agents](https://img.shields.io/badge/agents-6%20fleet-3987e5)](agents/)
 [![FastAPI](https://img.shields.io/badge/API-FastAPI-009688?logo=fastapi&logoColor=white)](api/)
 [![XGBoost](https://img.shields.io/badge/ML-XGBoost%20%2B%20Optuna-EB5E28)](models/training/xgb_optuna_pipeline.py)
@@ -33,7 +35,9 @@ The engine underneath was refactored out of a 600+ cell research notebook into a
 |---|---|
 | **Production Python** | ~8,200 LOC across 57 modules |
 | **Autonomous agents** | 6 (data · momentum · sentiment · risk · execution · supervisor) |
-| **Test suite** | 188 tests (unit · integration · agent) — **100% passing** |
+| **Test suite** | 190 tests (unit · integration · agent) — **100% passing** |
+| **CI/CD** | GitHub Actions → lint · test · frontend · Docker → GHCR |
+| **Observability** | Prometheus `/metrics` · Grafana dashboard · alert rules |
 | **Data collectors** | 11 (market, macro, news, social, vision) |
 | **Feature indicators** | 150+ (momentum, volatility, volume) |
 | **Documentation** | 17 architecture & policy documents |
@@ -112,7 +116,7 @@ VOLT_SYSTEM/
 ├── infrastructure/        # config · database · monitoring · docker
 ├── api/                   # rest (FastAPI) · websocket
 ├── frontend/              # React + Vite control-plane dashboard
-├── tests/                 # unit · integration · agent_tests (188 tests)
+├── tests/                 # unit · integration · agent_tests (190 tests)
 ├── research/notebooks/    # archived research notebook (shadow-tested)
 ├── docs/                  # 17 architecture & policy documents
 └── README.md
@@ -144,7 +148,7 @@ cp .env.example .env                 # then fill in provider API keys
 ### Run the test suite
 
 ```bash
-pytest                          # 188 tests (unit + integration + agent)
+pytest                          # 190 tests (unit + integration + agent)
 pytest tests/agent_tests        # just the agent-fleet tests
 ```
 
@@ -171,10 +175,23 @@ uvicorn api.rest.app:app --reload
 ### Full streaming cluster
 
 ```bash
-docker compose up --build            # API + Redis + Redpanda
+docker compose up --build            # API + Redpanda + Redis + Prometheus + Grafana
 ```
 
 See [infrastructure/docker/DOCKER_SETUP.md](infrastructure/docker/DOCKER_SETUP.md) for details.
+
+---
+
+## 🏭 Production Operations
+
+Full runbook: **[docs/DEPLOYMENT.md](docs/DEPLOYMENT.md)**
+
+- **CI** ([ci.yml](.github/workflows/ci.yml)) — every push/PR: `ruff` lint gate, the 190-test suite with coverage, frontend build, and a no-push Docker image build.
+- **CD** ([cd.yml](.github/workflows/cd.yml)) — pushes to `main` and `v*` tags build the API image and publish it to **GHCR** (`latest`, `sha-*`, semver tags). Rollback = redeploy a previous immutable `sha-*` tag.
+- **Metrics** — the API exposes Prometheus metrics at `/metrics` ([api/rest/metrics.py](api/rest/metrics.py)): request rate/latency histograms by route + build info. Zero-config: instrumentation self-disables if `prometheus_client` is absent.
+- **Dashboards & alerts** — `docker compose up` brings Prometheus (`:9090`) and Grafana (`:3000`) with an auto-provisioned **Volt System — API Overview** dashboard and alert rules (`VoltApiDown`, `VoltHighErrorRate`, `VoltHighLatency`) from [infrastructure/monitoring/](infrastructure/monitoring/).
+- **MLOps loop** — drift detection (KS/PSI) → Optuna retrain (`NeuroplasticityLoop`) → `PENDING` in the model registry → human approval gate → serve. Details in the runbook.
+- **Make targets** — `make lint · test · api · up · down · logs` mirror CI locally ([Makefile](Makefile)).
 
 ### Control-plane dashboard (React)
 
@@ -190,7 +207,7 @@ cd frontend && npm install && npm run dev   # http://localhost:5173
 ## 🧪 Testing
 
 ```bash
-pytest                              # full suite (188)
+pytest                              # full suite (190)
 pytest tests/unit                   # fast, no I/O
 pytest tests/integration            # I/O: sqlite, parquet, FastAPI
 pytest tests/agent_tests            # agent fleet + event bus
@@ -204,6 +221,7 @@ Tests are organized into `unit/`, `integration/`, and `agent_tests/`. A **shadow
 
 **ML/Data** — XGBoost · LightGBM · scikit-learn · statsmodels · Optuna · pandas · NumPy · SciPy
 **Serving/Infra** — FastAPI · Redis · aiokafka (Redpanda) · SQLite · Parquet
+**Ops** — GitHub Actions · GHCR · Prometheus · Grafana · Docker Compose · ruff · Make
 **Viz** — Matplotlib · Seaborn · Plotly
 
 ---

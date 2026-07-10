@@ -1,0 +1,23 @@
+[project]
+name = "volt-system"
+version = "0.1.0"
+description = "Autonomous, agent-based quantitative trading platform"
+requires-python = ">=3.11"
+
+[tool.ruff]
+line-length = 120
+target-version = "py311"
+extend-exclude = [".venv", "frontend", "research", "docs", "infrastructure/docker"]
+
+[tool.ruff.lint]
+# Conservative, correctness-focused gate that passes on the current tree:
+# pyflakes (F) + a subset of pycodestyle errors (E). Style-only rules are left
+# out so CI stays green without a mass reformat.
+select = ["F", "E4", "E7", "E9", "W6"]
+ignore = ["E402", "E741"]
+
+[tool.ruff.lint.per-file-ignores]
+"__init__.py" = ["F401"]           # re-exports
+"tests/*" = ["F401", "F811", "F841"]   # fixtures / shadowing / bound-for-readability
+
+# pytest configuration lives in pytest.ini (single source of truth).

@@ -32,7 +32,7 @@ except Exception:
     talib = None
     HAS_TALIB = False
 
-from sklearn.preprocessing import StandardScaler
+from sklearn.preprocessing import StandardScaler  # noqa: E402  (follows optional-talib guard)
 
 
 # ============================================================================

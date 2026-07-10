@@ -89,6 +89,10 @@ async def lifespan(app: FastAPI):
 
 app = FastAPI(title="Volt Data API", version="0.1.0", lifespan=lifespan)
 
+# Prometheus instrumentation (no-op if prometheus_client is not installed).
+from api.rest.metrics import setup_metrics  # noqa: E402
+setup_metrics(app, service="volt-data-api", version="0.1.0")
+
 
 @dataclass
 class AppDependencies:

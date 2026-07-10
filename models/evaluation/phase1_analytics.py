@@ -131,7 +131,7 @@ def calculate_key_metrics(df: pd.DataFrame, verbose: bool = True) -> dict:
     """Return a dict of KPIs and optionally print the dashboard."""
     total_revenue = df["Total_Sales"].sum()
     total_units = df["Units_Sold"].sum()
-    total_transactions = len(df)
+    total_transactions = len(df)  # noqa: F841  (kept for reporting parity with notebook)
     avg_transaction = df["Total_Sales"].mean()
     unique_customers = df["Customer_ID"].nunique()
 
@@ -144,10 +144,10 @@ def calculate_key_metrics(df: pd.DataFrame, verbose: bool = True) -> dict:
         print(f"  Avg Transaction:    ${avg_transaction:,.2f}")
         print(f"  Total Units Sold:   {total_units:,}")
         print(f"  Unique Customers:   {unique_customers:,}")
-        print(f"\n  Top 5 Products:")
+        print("\n  Top 5 Products:")
         for i, (prod, sales) in enumerate(top_products.head(5).items(), 1):
             print(f"    {i}. {prod}: ${sales:,.2f}")
-        print(f"\n  Top Regions:")
+        print("\n  Top Regions:")
         for i, (reg, sales) in enumerate(top_regions.items(), 1):
             print(f"    {i}. {reg}: ${sales:,.2f}")
 

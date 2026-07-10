@@ -1,7 +1,7 @@
 ﻿import asyncio
 import json
 import logging
-from typing import Callable, Coroutine, Dict, Any, List
+from typing import Dict, Any, List
 import pandas as pd
 from datetime import datetime, timezone
 

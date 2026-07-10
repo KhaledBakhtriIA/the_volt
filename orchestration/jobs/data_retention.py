@@ -7,7 +7,7 @@ import shutil
 from dataclasses import dataclass
 from datetime import datetime, timedelta
 from pathlib import Path
-from typing import Dict, Iterable, List
+from typing import Dict, Iterable
 
 
 def _env_int(name: str, default: int) -> int:
