@@ -1,10 +1,11 @@
-﻿import json
 import sqlite3
 import pandas as pd
 import pytest
 
 from src.canonical.feature_store_engine import FeatureStoreEngine, FeatureStoreConfig
 from src.canonical.execution_gateway import OrderContract, OrderSide, OrderStatus, RiskManager, PaperExecutor
+from src.canonical.risk_management import PortfolioRiskModel
+
 
 @pytest.fixture
 def memory_engine():
@@ -14,7 +15,7 @@ def memory_engine():
         persist_offline=False
     )
     engine = FeatureStoreEngine(config)
-    
+
     # Pre-seed FSE with fake market data
     df = pd.DataFrame({
         "symbol": ["BTC-USD", "BTC-USD"],
@@ -24,37 +25,59 @@ def memory_engine():
     engine.process(df, dataset="realtime_ticks", strict=False)
     return engine
 
-def test_risk_manager_rejects_bad_order(memory_engine):
-    risk = RiskManager(memory_engine, max_order_size=10.0)
-    
-    # Test Size limit
-    order = OrderContract(symbol="BTC-USD", side=OrderSide.BUY, size=15.0, strategy_id="strat_v1")
-    passed, reason = risk.evaluate(order)
-    assert not passed
-    assert reason == "exceeds_max_order_size"
-    
-    # Test unknown symbol
+
+def _funded_risk_manager(engine, equity=1_000_000.0):
+    """Build a RiskManager whose PortfolioRiskModel has equity synced (kill-switch inactive)."""
+    portfolio = PortfolioRiskModel()
+    portfolio.sync_equity(equity)
+    return RiskManager(engine, portfolio_model=portfolio)
+
+
+def test_risk_manager_rejects_unknown_symbol(memory_engine):
+    risk = _funded_risk_manager(memory_engine)
+
+    # No market data seeded for ETH-USD -> rejected before sizing
     order = OrderContract(symbol="ETH-USD", side=OrderSide.BUY, size=1.0, strategy_id="strat_v1")
-    passed, reason = risk.evaluate(order)
+    passed, reason, size = risk.evaluate(order)
     assert not passed
-    assert "no_data_for_symbol" in reason
-    
+    assert reason == "no_data_for_symbol"
+    assert size == 0.0
+
+
+def test_risk_manager_halts_when_no_equity(memory_engine):
+    # PortfolioRiskModel with no equity synced -> kill switch trips inside sizing
+    risk = RiskManager(memory_engine, portfolio_model=PortfolioRiskModel())
+
+    order = OrderContract(symbol="BTC-USD", side=OrderSide.BUY, size=1.0, strategy_id="strat_v1")
+    passed, reason, size = risk.evaluate(order)
+    assert not passed
+    assert size == 0.0
+
+
+def test_risk_manager_sizes_valid_order(memory_engine):
+    risk = _funded_risk_manager(memory_engine)
+
+    order = OrderContract(symbol="BTC-USD", side=OrderSide.BUY, size=1.0, strategy_id="strat_v1")
+    passed, reason, size = risk.evaluate(order)
+    assert passed
+    assert reason == "passed_risk_checks"
+    # Clamped to the smaller of requested (1.0) vs risk-suggested size
+    assert size > 0.0
+
+
 def test_paper_executor_fills_order(memory_engine, tmp_path):
-    risk = RiskManager(memory_engine, max_order_size=10.0)
+    risk = _funded_risk_manager(memory_engine)
     db_path = tmp_path / "test_ledger.sqlite"
-    
+
     executor = PaperExecutor(risk, memory_engine, db_path=str(db_path))
-    
+
     order = OrderContract(symbol="BTC-USD", side=OrderSide.BUY, size=1.0, strategy_id="strat_v1")
     result = executor.submit_order(order)
-    
+
     assert result.status == OrderStatus.FILLED
-    # FSE quantile clipping might alter max range values slightly in extremely small datasets.
-    # So we assert we get a valid numeric price back.
     assert result.fill_price > 59000.0
     assert result.fill_timestamp is not None
-    
-    # Check SQLite DB
+
     with sqlite3.connect(db_path) as conn:
         cursor = conn.cursor()
         cursor.execute("SELECT symbol, status, fill_price FROM paper_trades")
@@ -64,19 +87,20 @@ def test_paper_executor_fills_order(memory_engine, tmp_path):
         assert rows[0][1] == "FILLED"
         assert rows[0][2] > 59000.0
 
+
 def test_paper_executor_saves_rejections(memory_engine, tmp_path):
-    risk = RiskManager(memory_engine, max_order_size=10.0)
+    risk = _funded_risk_manager(memory_engine)
     db_path = tmp_path / "test_ledger.sqlite"
     executor = PaperExecutor(risk, memory_engine, db_path=str(db_path))
-    
-    # Exceeds max limit
-    order = OrderContract(symbol="BTC-USD", side=OrderSide.BUY, size=50.0, strategy_id="huge_bet")
+
+    # Unknown symbol -> rejected and persisted with the rejection reason
+    order = OrderContract(symbol="ETH-USD", side=OrderSide.BUY, size=1.0, strategy_id="bad_symbol")
     result = executor.submit_order(order)
-    
+
     assert result.status == OrderStatus.REJECTED
-    
+
     with sqlite3.connect(db_path) as conn:
         cursor = conn.cursor()
         cursor.execute("SELECT status, reason FROM paper_trades")
         rows = cursor.fetchall()
-        assert rows[0] == ("REJECTED", "exceeds_max_order_size")
+        assert rows[0] == ("REJECTED", "no_data_for_symbol")

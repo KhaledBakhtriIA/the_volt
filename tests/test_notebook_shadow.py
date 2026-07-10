@@ -1,3 +1,4 @@
+import os
 import json
 import ast
 import numpy as np
@@ -7,8 +8,12 @@ import pytest
 
 from src.canonical.feature_engineer import FeatureEngineer as CanonicalFeatureEngineer
 
+# Repo-relative path to the archived research notebook (tests/ -> repo root)
+_REPO_ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+NOTEBOOK_PATH = os.path.join(_REPO_ROOT, "research", "notebooks", "AutoData_Analyst_v1_aymen.ipynb")
+
 def extract_notebook_feature_engineer():
-    nb_path = r'c:\Users\user\Desktop\the_volt_system\AutoData_Analyst_v1_aymen.ipynb'
+    nb_path = NOTEBOOK_PATH
     with open(nb_path, 'r', encoding='utf-8') as f:
         nb = json.load(f)
     

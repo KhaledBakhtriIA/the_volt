@@ -9,6 +9,13 @@ __pycache__/
 # Local collected datasets and logs
 data_api/data/
 data_api/logs/
+logs/
+exports/
+
+# Runtime databases and ledgers (regenerated on run)
+*.db
+*.sqlite
+*.sqlite3
 
 # Docker and environment files
 .env
