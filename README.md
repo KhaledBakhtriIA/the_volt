@@ -191,7 +191,8 @@ Full runbook: **[docs/DEPLOYMENT.md](docs/DEPLOYMENT.md)**
 - **Metrics** — the API exposes Prometheus metrics at `/metrics` ([api/rest/metrics.py](api/rest/metrics.py)): request rate/latency histograms by route + build info. Zero-config: instrumentation self-disables if `prometheus_client` is absent.
 - **Dashboards & alerts** — `docker compose up` brings Prometheus (`:9090`) and Grafana (`:3000`) with an auto-provisioned **Volt System — API Overview** dashboard and alert rules (`VoltApiDown`, `VoltHighErrorRate`, `VoltHighLatency`) from [infrastructure/monitoring/](infrastructure/monitoring/).
 - **MLOps loop** — drift detection (KS/PSI) → Optuna retrain (`NeuroplasticityLoop`) → `PENDING` in the model registry → human approval gate → serve. Details in the runbook.
-- **Make targets** — `make lint · test · api · up · down · logs` mirror CI locally ([Makefile](Makefile)).
+- **Test reliability intelligence** — every CI run is recorded by [**agent-data-fabric**](https://github.com/KhaledBakhtriIA/agent-data-fabric) (companion project): cross-run flakiness detection and reliability trends over the suite's history, cached across CI runs. Locally: `make reliability`.
+- **Make targets** — `make lint · test · reliability · api · up · down · logs` mirror CI locally ([Makefile](Makefile)).
 
 ### Control-plane dashboard (React)
 

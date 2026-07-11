@@ -39,9 +39,29 @@ jobs:
           pip install -r requirements.txt
           pip install -r infrastructure/docker/requirements.txt
       - name: Run test suite
-        run: pytest tests -q --tb=short
+        run: pytest tests -q --tb=short --junitxml=test-results/junit.xml
       - name: Coverage report
         run: pytest tests -q --tb=short --cov=. --cov-report=term-missing:skip-covered --cov-fail-under=0 | tail -40
+      - name: Restore reliability history
+        if: always()
+        uses: actions/cache@v4
+        with:
+          path: .reliability
+          key: reliability-${{ github.run_id }}
+          restore-keys: |
+            reliability-
+      - name: Reliability intelligence (agent-data-fabric)
+        if: always()
+        run: |
+          pip install -q git+https://github.com/KhaledBakhtriIA/agent-data-fabric.git
+          reliability ingest test-results/junit.xml --db .reliability/history.db
+          reliability report --db .reliability/history.db
+      - name: Upload test results
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: junit-results-${{ github.run_id }}
+          path: test-results/junit.xml
 
   frontend:
     name: Frontend build

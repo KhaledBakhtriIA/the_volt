@@ -29,3 +29,7 @@ docker-build-output.log
 
 # Container images and volumes (local development)
 *.tar.gz
+
+# QA Reliability Intelligence history (agent-data-fabric)
+.reliability/
+test-results/

@@ -1,5 +1,5 @@
 # The Volt System — developer & ops entry points
-.PHONY: install lint test test-unit test-integration test-agents api frontend up down logs ps clean
+.PHONY: install lint test test-unit test-integration test-agents reliability api frontend up down logs ps clean
 
 PY ?= python
 
@@ -11,6 +11,10 @@ lint:               ## Static checks (ruff)
 
 test:               ## Full test suite
 	pytest tests -q
+
+reliability:        ## Run tests via agent-data-fabric: record run + flakiness/trend report
+	pip install -q git+https://github.com/KhaledBakhtriIA/agent-data-fabric.git
+	$(PY) -m reliability run .
 
 test-unit:          ## Fast unit tests only
 	pytest tests/unit -q
