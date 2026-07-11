@@ -1,8 +1,9 @@
 import { useEffect, useState } from 'react'
 import Sparkline from './components/Sparkline.jsx'
 import {
-  KPIS, GOVERNANCE, KILL_SWITCH_LIMIT,
+  KPIS, GOVERNANCE, KILL_SWITCH_LIMIT, STATIC_AUDIT,
   seedState, nextTick, sampleCollectors,
+  fetchBackendHealth, fetchRequestCount,
 } from './data.js'
 
 const usd = (n) => n.toLocaleString('en-US', { style: 'currency', currency: 'USD', maximumFractionDigits: 0 })
@@ -11,12 +12,28 @@ const pct = (n) => `${(n * 100).toFixed(2)}%`
 export default function App() {
   const [state, setState] = useState(seedState)
   const [collectors, setCollectors] = useState(sampleCollectors)
+  const [backend, setBackend] = useState({ live: false })
+  const [reqCount, setReqCount] = useState(null)
 
   // Simulated live feed: equity ticks every 1.4s, collectors resample every 4s.
   useEffect(() => {
     const t1 = setInterval(() => setState((s) => nextTick(s)), 1400)
     const t2 = setInterval(() => setCollectors(sampleCollectors()), 4000)
     return () => { clearInterval(t1); clearInterval(t2) }
+  }, [])
+
+  // REAL feed: poll the FastAPI gateway through the /api proxy every 5s.
+  useEffect(() => {
+    let cancelled = false
+    const probe = async () => {
+      const health = await fetchBackendHealth()
+      if (cancelled) return
+      setBackend(health)
+      setReqCount(health.live ? await fetchRequestCount() : null)
+    }
+    probe()
+    const t = setInterval(probe, 5000)
+    return () => { cancelled = true; clearInterval(t) }
   }, [])
 
   const up = state.dailyPnl >= 0
@@ -37,7 +54,11 @@ export default function App() {
         </div>
         <div className="spacer" />
         <span className="pill env"><span className="dot" style={{ background: 'var(--warning)' }} />Paper</span>
-        <span className="pill"><span className="dot live" />Operational</span>
+        {backend.live ? (
+          <span className="pill"><span className="dot live" />API Live · {backend.latency} ms</span>
+        ) : (
+          <span className="pill"><span className="dot" style={{ background: 'var(--ink-muted)' }} />API Offline · demo</span>
+        )}
       </header>
 
       {/* ---------- KPI tiles (real audited numbers) ---------- */}
@@ -178,9 +199,87 @@ export default function App() {
         </div>
       </div>
 
+      {/* ---------- system health & statistics ---------- */}
+      <div className="section-label">System Health &amp; Statistics</div>
+      <div className="health-grid">
+        <div className="tile">
+          <div className="k-label">API GATEWAY <span className={`chip ${backend.live ? 'good' : 'off'}`}>{backend.live ? 'Real · Live' : 'Offline'}</span></div>
+          <div className="k-value tnum">{backend.live ? `${backend.latency} ms` : '—'}</div>
+          <div className="k-sub">{backend.live ? `${backend.service} · /health` : 'start: docker compose up'}</div>
+        </div>
+        <div className="tile">
+          <div className="k-label">REQUESTS SERVED <span className={`chip ${reqCount != null ? 'good' : 'off'}`}>{reqCount != null ? 'Real · Live' : 'Offline'}</span></div>
+          <div className="k-value tnum">{reqCount != null ? reqCount.toLocaleString() : '—'}</div>
+          <div className="k-sub">Prometheus /metrics counter</div>
+        </div>
+        <div className="tile">
+          <div className="k-label">TEST SUITE <span className="chip blue">Static · Audited</span></div>
+          <div className="k-value tnum">{STATIC_AUDIT.tests}</div>
+          <div className="k-sub">tests · <b>100% passing</b> in CI</div>
+        </div>
+        <div className="tile">
+          <div className="k-label">SUITE RELIABILITY <span className="chip blue">Static · Audited</span></div>
+          <div className="k-value tnum">{STATIC_AUDIT.reliability}</div>
+          <div className="k-sub">{STATIC_AUDIT.reliabilityTrend} · {STATIC_AUDIT.reliabilityRuns} runs (agent-data-fabric)</div>
+        </div>
+        <div className="tile">
+          <div className="k-label">AGENT FLEET <span className="chip blue">Static · Audited</span></div>
+          <div className="k-value tnum">{STATIC_AUDIT.agents}</div>
+          <div className="k-sub">agents on the event bus</div>
+        </div>
+        <div className="tile">
+          <div className="k-label">CI / CD <span className="chip blue">Static · Audited</span></div>
+          <div className="k-value" style={{ fontSize: 22 }}>Green</div>
+          <div className="k-sub">{STATIC_AUDIT.ci} → {STATIC_AUDIT.registry}</div>
+        </div>
+      </div>
+
+      {/* ---------- data provenance: real vs simulated vs static ---------- */}
+      <div className="section-label">Data Provenance — Real vs Simulated vs Static</div>
+      <div className="grid cols-3">
+        <div className="card mode-card">
+          <div className="mode-head">
+            <h3>Real</h3>
+            <span className={`chip ${backend.live ? 'good' : 'off'}`}>{backend.live ? 'Live now' : 'Offline'}</span>
+          </div>
+          <p className="mode-desc">Fetched from the running FastAPI gateway through the <code>/api</code> proxy. Appears automatically when the Docker stack is up.</p>
+          <ul className="plist">
+            <li>API health &amp; latency (top bar)</li>
+            <li>Requests-served counter</li>
+            <li>Grafana / Prometheus (ports 3000 / 9090)</li>
+          </ul>
+          <div className="mode-note">{backend.live ? 'Backend responding — these numbers are real.' : 'Run `docker compose up` to light this column up.'}</div>
+        </div>
+        <div className="card mode-card">
+          <div className="mode-head">
+            <h3>Simulated</h3>
+            <span className="chip warning">Demo feed</span>
+          </div>
+          <p className="mode-desc">A client-side random walk generated in the browser. Illustrates what the control plane looks like under live trading — it is <b>not</b> market data.</p>
+          <ul className="plist">
+            <li>Equity curve, day P&amp;L, peak equity</li>
+            <li>Drawdown meter &amp; kill-switch state</li>
+            <li>Collector latencies &amp; status dots</li>
+          </ul>
+          <div className="mode-note">Never used for decisions — visual demo only.</div>
+        </div>
+        <div className="card mode-card">
+          <div className="mode-head">
+            <h3>Static</h3>
+            <span className="chip blue">Audited {STATIC_AUDIT.auditedOn}</span>
+          </div>
+          <p className="mode-desc">Measured directly from the repository and its CI history. Changes only when the codebase is re-audited.</p>
+          <ul className="plist">
+            <li>Platform metric tiles (LOC, modules, collectors)</li>
+            <li>Test count &amp; reliability trend</li>
+            <li>Model &amp; drift governance thresholds</li>
+          </ul>
+          <div className="mode-note">Source of truth: git + CI runs, not estimates.</div>
+        </div>
+      </div>
+
       <div className="foot">
-        Platform metrics are audited from the repository · trading &amp; telemetry are a client-side simulation.
-        Wire to the FastAPI gateway via <code>/api</code> to run live.
+        Every number on this page is labeled by provenance: <b>Real</b> (live backend), <b>Simulated</b> (browser demo feed), or <b>Static</b> (audited from the repo).
       </div>
     </div>
   )

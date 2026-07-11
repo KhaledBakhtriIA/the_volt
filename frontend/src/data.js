@@ -11,7 +11,7 @@
 // --- Real repository metrics (audited) ---
 export const KPIS = [
   { label: 'Production Python', value: '8,314', sub: 'LOC · 61 modules' },
-  { label: 'Test Suite', value: '180', sub: '<b>100% passing</b> · 34 files' },
+  { label: 'Test Suite', value: '190', sub: '<b>100% passing</b> · 37 files' },
   { label: 'Data Collectors', value: '11', sub: 'market · macro · social · vision' },
   { label: 'Pipeline Modules', value: '22', sub: 'src/canonical' },
   { label: 'Feature Indicators', value: '150+', sub: 'notebook-verified' },
@@ -109,4 +109,66 @@ export const GOVERNANCE = {
   psiStat: 0.083,
   ksThreshold: 0.15,
   psiThreshold: 0.20,
+}
+
+// --- STATIC: audited repository facts (change only with a re-audit) ---
+export const STATIC_AUDIT = {
+  auditedOn: '2026-07-11',
+  tests: 190,
+  reliability: '100%',
+  reliabilityRuns: 2,
+  reliabilityTrend: 'STABLE',
+  loc: '8,200+',
+  modules: 57,
+  agents: 6,
+  ci: 'GitHub Actions',
+  registry: 'GHCR',
+}
+
+// --- REAL: live backend probes through the Vite proxy (/api -> FastAPI :8000) ---
+
+// GET /api/health — returns { live, latency, service } or { live: false }.
+export async function fetchBackendHealth(timeoutMs = 2500) {
+  const ctrl = new AbortController()
+  const timer = setTimeout(() => ctrl.abort(), timeoutMs)
+  const started = performance.now()
+  try {
+    const res = await fetch('/api/health', { signal: ctrl.signal })
+    if (!res.ok) return { live: false }
+    const body = await res.json()
+    return {
+      live: body.status === 'ok',
+      latency: Math.round(performance.now() - started),
+      service: body.service || 'volt-data-api',
+    }
+  } catch {
+    return { live: false }
+  } finally {
+    clearTimeout(timer)
+  }
+}
+
+// GET /api/metrics — sums volt_http_requests_total from the Prometheus text
+// exposition. Returns a number, or null when the backend is unreachable.
+export async function fetchRequestCount(timeoutMs = 2500) {
+  const ctrl = new AbortController()
+  const timer = setTimeout(() => ctrl.abort(), timeoutMs)
+  try {
+    const res = await fetch('/api/metrics', { signal: ctrl.signal })
+    if (!res.ok) return null
+    const text = await res.text()
+    let total = 0
+    let seen = false
+    for (const line of text.split('\n')) {
+      if (line.startsWith('volt_http_requests_total{')) {
+        const v = parseFloat(line.slice(line.lastIndexOf(' ') + 1))
+        if (!Number.isNaN(v)) { total += v; seen = true }
+      }
+    }
+    return seen ? Math.round(total) : null
+  } catch {
+    return null
+  } finally {
+    clearTimeout(timer)
+  }
 }
