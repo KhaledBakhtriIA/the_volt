@@ -25,6 +25,7 @@ def setup_metrics(app: FastAPI, service: str = "volt-data-api", version: str = "
             generate_latest,
         )
     except Exception:  # pragma: no cover - exercised only when the dep is missing
+
         return False
 
     try:
